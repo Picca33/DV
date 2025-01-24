@@ -1,0 +1,477 @@
+
+<h5 class="card-title">Electricity production capacities from renewables vs CO2 emissions</h5>
+
+<p, style="font-size: 16px;">
+  In this bubble chart it is possible to see the CO2 emissions of various countries compared to their 
+  Electricity production capacity from renewables. Both x and y axis are kept on a logarithmic scale 
+  for a better visualization. Each bubble represents a country, with their size depending on the population 
+  and colour depending on their share of energy produced from renewables. By hovering a bubble a tooltip appears, 
+  indicating the name of the country, its population, electricity production capacity and 2 emissions. 
+  On the bottom of the chart a year slider is present, by dragging it it's possible to change the year visualized 
+  on the chart.
+
+</p>
+
+<!-- Include d3 library -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<!-- Load slider -->
+<script src="https://unpkg.com/d3-simple-slider"></script>
+
+<!-- Create a container to host the chart -->
+<div id="container_2"></div>
+<!-- <div id="slider-range_2"></div> -->
+
+
+<style>
+                        
+	* {
+      font-family: Verdana;
+      font-size: 18px;
+      line-height: 1.5;
+      max-width: 700px; 
+      margin: 0 auto; 
+    }
+
+    h5 {
+		padding-top: 20px;
+    }                     
+
+    text {
+      font-family: lato;
+      font-size: 10px;
+      fill: #333333;
+    }
+    .grid path {
+      stroke-width: 0;
+    }
+    .grid .tick line {
+      stroke: #333333;
+      stroke-width: 0.3px;
+      stroke-opacity: 0.3;
+    }
+    text.chart-title {
+      font-size: 14px;
+      font-weight: bold;
+      fill:#222222
+    }
+    text.chart-label {
+      font-size: 10px;
+      font-weight: 400;
+      fill: #999999;
+    }
+    text.chart-source {
+      font-size: 8px;
+      fill: #999999;
+    }
+    text.copyright {
+      font-size: 8px;
+      fill: #999999;
+    }
+    .tooltip {
+      background-color: #ffffff;
+      font-family: lato;
+      font-size: 11px;
+      padding: 6px;
+      color: #333333;
+      border: none;
+      box-shadow: 0px 0px 3px 0px #E6E6E6;
+    }
+    </style>
+    
+<script>
+
+    // set the dimensions and margins of the graph
+    const margin2 = {top: 60, right: 120, bottom: 50, left: 30};
+    const width2 = 450 - margin2.left - margin2.right;
+    const height2 = 350 - margin2.top - margin2.bottom;
+
+    // append the svg object to the body of the page
+    const svg2 = d3.select("#container_2")
+        .append("svg")
+        .attr("width", "100%")
+        .attr("height", "50%")
+        .attr("viewBox", "0 0 450 350")
+        .attr("preserveAspectRatio", "xMinYMin")
+        .append("g")
+        .attr("transform", `translate(${margin2.left}, ${margin2.top})`);
+
+    var year=2021
+    // parse the Data
+    d3.csv("https://raw.githubusercontent.com/Picca33/DV/refs/heads/main/Data/2_3.csv")
+    .then(function(data){
+
+        // Categorization function
+		function categorizePercentage(percentage) {
+			if (percentage < 20) return "Oceania";
+			if (percentage <= 40) return "NorthAmerica";
+			if (percentage <= 60) return "Europe";
+			if (percentage <= 80) return "Asia";
+			return "Africa";
+		}
+
+		// Add category to each data point
+		data.forEach(d => d.category = categorizePercentage(d.Percentage));     
+        
+        filteredData = data.filter(function (d) {
+            return d.Year == year;
+        });
+        
+        filteredData =filteredData.filter(function (d) {
+            return d.Population != "";
+        });
+        filteredData =filteredData.filter(function (d) {
+            return d.MegaWatt > "1";
+        });
+        filteredData =filteredData.filter(function (d) {
+            return d.CO2 > "1";
+        });
+
+        console.log(filteredData)
+
+        // list of value keys
+        const typeKeys = data.columns.slice(1);
+        var allgroups = ["Africa", "Asia", "Europe", "NorthAmerica", "Oceania"]
+
+        // X scale and Axis
+        const f =  d3.format("~s")
+        const xScale = d3.scaleLog()
+            //.domain(d3.extent(data, d => +d.MegaWatt))
+            .domain([0.5, 1.4*d3.max(data, d => +d.MegaWatt)])
+            .range([0, width2])
+        svg2.append('g')
+            .attr("transform", `translate(0, ${height2})`)
+            .call(d3.axisBottom(xScale).tickSize(0).ticks(2).tickPadding(3).tickFormat(f))
+            .call(d => d.select(".domain").remove());
+
+        // Y scale and Axis
+        const yScale = d3.scaleLog()
+            .domain([1000000, 800000000])
+            .range([height2, 0]);
+        /*svg2.append('g')
+            .call(d3.axisLeft(yScale).tickSize(0).ticks(1).tickPadding(2).tickFormat(f))
+            .call(d => d.select(".domain").remove());*/
+
+		// Append Y axis with specific tick values
+		svg2.append('g')
+			.call(d3.axisLeft(yScale).tickValues([1e6, 1e7, 1e8]).tickSize(0).tickPadding(2).tickFormat(f))
+			.call(d => d.select(".domain").remove());
+
+        console.log(d3.min(data, d=> +d.Population))
+        // bubble size scale
+        /*var zScale = d3.scaleSqrt()
+            .domain([200000, 1510000000])
+            .range([2, 15])*/
+
+        var zScale = d3.scaleSqrt()
+            .domain([317722, 83408560])
+            .range([2, 10])
+
+        const color = d3.scaleOrdinal()
+            .domain(allgroups)
+            .range(["#1B5E20", "#2E7D32", "#43A047", "#66BB6A", "#81C784"]);
+
+        // set horizontal grid line
+        const GridLineH = () => d3.axisLeft().scale(yScale);
+        svg2.append("g")
+            .attr("class", "grid")
+            .call(GridLineH()
+                .tickSize(-width2,0,0)
+                .tickFormat("")
+                .ticks(6)
+            );
+
+        // set vertical grid line
+        const GridLineV = () => d3.axisBottom().scale(xScale);
+        svg2.append("g")
+            .attr("class", "grid")
+            .call(GridLineV()
+                .tickSize(height2,0,0)
+                .tickFormat("")
+                .ticks(5)
+            );
+
+        // create a tooltip
+        const tooltip = d3.select("#container_2")
+            .append("div")
+            .attr("class", "tooltip")
+
+        // tooltip events
+        const mouseover = function(d) {
+            tooltip
+                .style("opacity", 1)
+            d3.select(this)
+                .style("stroke", "#EF4A60")
+                .style("opacity", 1)
+        };
+        const mousemove = function(event,d) {
+            const f = d3.format(",");
+            tooltip
+                .html("<div><b>Country:</b> "+ d.Country+ "<div><b>Total Population:</b> " +f(d.Population)+ "</div><div><b> MegaWatt of energy from renewables:</b> " +f(d.MegaWatt)+ "</div><div><b>Tonnes of CO2 produced:</b> "+ f(d.CO2) +"</div>")
+                .style("left", (d3.pointer(event)[0])*1.2+100 + "px")
+                .style("top", (d3.pointer(event)[1])*1.2+100 + "px")
+                .style("position", "absolute")
+        };
+
+        const mouseleave = function(d) {
+            tooltip
+                .style("opacity", 0)
+            d3.select(this)
+                .style("stroke", "none")
+                .style("opacity", 0.5)
+        };
+
+
+        // create graph
+        svg2.append("g")
+            .selectAll("g")
+            .data(filteredData)
+            .join("circle")
+            .attr("class", d=> d.category )
+            .attr("cx", d => xScale(+d.MegaWatt))
+            .attr("cy", d => yScale(+d.CO2))
+            .attr("r", d =>zScale(+d.Population))
+            .style("fill", d => color(d.category))
+            .style("opacity", 0.8)
+            .on("mouseover", mouseover)
+            .on("mousemove", mousemove)
+            .on("mouseleave", mouseleave)
+
+            d3.selectAll("circle")
+                .each(function() {
+                    console.log(d3.select(this).attr("class"));  // Logs the class of each circle
+                });
+
+
+        // set data labels
+        svg2.append("g")
+            .attr("font-size", 10)
+            .selectAll("text")
+            .data(filteredData)
+            .join("text")
+            .attr("dy", "0.35em")
+            .attr("x", d => xScale(+d.MegaWatt))
+            .attr("y", d => yScale(+d.CO2));
+
+        // set title
+        // svg2
+        //   .append("text")
+        //     .attr("class", "chart-title")
+        //     .attr("x", -(margin2.left)*0.5)
+        //     .attr("y", -(margin2.top)/1.5)
+        //     .attr("text-anchor", "start")
+        //   .text("Percentage of GDP spent for Medical Expenditure vs Life Expectancy")
+
+        // set X axis label
+        svg2.append("text")
+            .attr("class", "chart-label")
+            .attr("x", width2/1.7)
+            .attr("y", height2+margin2.bottom*0.6)
+            .attr("text-anchor", "middle")
+            .text("Electricity production capacity from renewables (MW)");
+
+        // set Y axis label
+        svg2.append("text")
+            .attr("class", "chart-label")
+            .attr("x", -(margin2.left)*0.5)
+            .attr("y", -(margin2.top/8))
+            .attr("text-anchor", "start")
+            .text("CO2 production (Tonnes)")
+
+        // Add legend: circles
+        var valuesToShow = [10000000, 500000000]
+        var xCircle = 355
+        var xLabel = 395
+        svg2.selectAll("legend")
+            .data(valuesToShow)
+            .enter()
+            .append("circle")
+            .attr("cx", xCircle)
+            .attr("cy", function(d){ return height2 -20 - zScale(d) } )
+            .attr("r", function(d){ return zScale(d) })
+            .style("fill", "none")
+            .attr("stroke", "black")
+
+            // Add legend: segments
+        svg2.selectAll("legend")
+            .data(valuesToShow)
+            .enter()
+            .append("line")
+            .attr('x1', function(d){ return xCircle + zScale(d) } )
+            .attr('x2', xLabel)
+            .attr('y1', function(d){ return height2 -20 - zScale(d) } )
+            .attr('y2', function(d){ return height2 -20  - zScale(d) } )
+            .attr('stroke', 'black')
+            .style('stroke-dasharray', ('2,2'))
+
+            // Add legend: labels
+        svg2.selectAll("legend")
+            .data(valuesToShow)
+            .enter()
+            .append("text")
+            .attr('x', xLabel)
+            .attr('y', function(d){ return height2 -20 - zScale(d) } )
+            .text( function(d){ return d/1000000 } )
+            .style("font-size", 10)
+            .attr('alignment-baseline', 'middle')
+
+        // Legend title
+        svg2.append("text")
+            .attr('x', xCircle)
+            .attr("y", height2 -20 +10)
+            .text("Population (M)")
+            .attr("text-anchor", "middle")
+
+            // Add one dot in the legend for each name.
+
+            // What to do when one group is hovered
+        const highlight = function(event, d){
+            // reduce opacity of all groups
+            d3.selectAll("circle").style("opacity", .05)
+            // except the one that is hovered
+            d3.selectAll("circle."+d).style("opacity", 1)
+        }
+
+        // And when it is not hovered anymore
+        const noHighlight = function(event, d){
+            d3.selectAll("circle").style("opacity", 0.8)
+        }
+        //list of all the continents from the data
+        var size = 20
+        svg2.selectAll("myrect")
+            .data(allgroups)
+            .enter()
+            .append("circle")
+            .attr("cx", 320)
+            .attr("cy", function(d,i){ return 10 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
+            .attr("r", 7)
+            .style("fill", function(d){ return color(d)})
+            .on("mouseover", highlight)
+            .on("mouseleave", noHighlight)
+
+        let myDictionary = {
+            Oceania: "less than 20%",
+            NorthAmerica: "20% to 40%",
+            Europe: "40% to 60%",
+            Asia: "60% to 80%",
+            Africa: "more than 80%"
+        };
+
+        // Add labels beside legend dots
+        svg2.selectAll("mylabels")
+            .data(allgroups)
+            .enter()
+            .append("text")
+            .attr("x", 315 + size*.8)
+            .attr("y", function(d,i){ return i * (size + 5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
+            .style("fill", function(d){ return color(d)})
+            .text(function(d){ return myDictionary[d]})
+            .attr("text-anchor", "left")
+            .style("alignment-baseline", "middle")
+            .on("mouseover", highlight)
+            .on("mouseleave", noHighlight)
+
+        //add slider        
+        const sliderRange= d3
+            .sliderBottom()
+            .min(2008)
+            .max(2021)
+            .width(600)
+            .step(1)
+            .tickFormat(d3.format('Y'))
+            .ticks(5)
+            .default(2008)
+            .on('onchange', val => {
+                year = val
+                updateChart(year)
+            })
+               
+        const gRange= d3.
+            select('#container_2')
+            .append("svg")
+            .attr("width", 600 + margin2.left + margin2.right)
+            .attr("height", 10 + margin2.top + margin2.bottom)
+            .append("g")
+            .attr("transform","translate(" + margin2.left + "," + margin2.top + ")")
+            .call(sliderRange);
+
+
+        function updateChart(year){
+            //remove all the bubbles
+            d3.selectAll("circle").remove()
+            d3.selectAll("mylabels").remove()
+            d3.selectAll("legend").remove()
+            d3.selectAll("rect").remove()
+            
+			
+			filteredData = data.filter(function (d) {
+				return d.Year == year;
+			});
+			
+			filteredData =filteredData.filter(function (d) {
+				return d.Population != "";
+			});
+			filteredData =filteredData.filter(function (d) {
+				return d.MegaWatt > "1";
+			});
+			filteredData =filteredData.filter(function (d) {
+				return d.CO2 > "1";
+			});
+
+            svg2.append("g")
+                .selectAll("g")
+                .data(filteredData)
+                .join("circle")
+                .attr("class", function(d) { return  d.category })
+                .attr("cx", d => xScale(+d.MegaWatt))
+                .attr("cy", d => yScale(+d.CO2))
+                .attr("r", d =>zScale(+d.Population))
+                .style("fill", d => color(d.category))
+                .style("opacity", 0.6)
+                .on("mouseover", mouseover)
+                .on("mousemove", mousemove)
+                .on("mouseleave", mouseleave)
+
+            svg2.selectAll("legend")
+                .data(valuesToShow)
+                .enter()
+                .append("circle")
+                .attr("cx", xCircle)
+                .attr("cy", function(d){ return height2 -20 - zScale(d) } )
+                .attr("r", function(d){ return zScale(d) })
+                .style("fill", "none")
+                .attr("stroke", "black")
+
+            // Add legend: segments
+            svg2.selectAll("legend")
+                .data(valuesToShow)
+                .enter()
+                .append("line")
+                .attr('x1', function(d){ return xCircle + zScale(d) } )
+                .attr('x2', xLabel)
+                .attr('y1', function(d){ return height2 -20 - zScale(d) } )
+                .attr('y2', function(d){ return height2 -20  - zScale(d) } )
+                .attr('stroke', 'black')
+                .style('stroke-dasharray', ('2,2'))
+
+
+            // Add one dot in the legend for each name.
+            //list of all the continents from the data
+            var size = 20
+            svg2.selectAll("myrect")
+                .data(allgroups)
+                .enter()
+                .append("circle")
+                .attr("cx", 320)
+                .attr("cy", function(d,i){ return 10 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
+                .attr("r", 7)
+                .style("fill", function(d){ return color(d)})
+                .on("mouseover", highlight)
+                .on("mouseleave", noHighlight)
+        
+        }
+
+    })
+
+</script>
+
+</div>

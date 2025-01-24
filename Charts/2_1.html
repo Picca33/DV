@@ -1,0 +1,265 @@
+<h5 class="card-title">More investments in climate change mitigation</h5>
+<p, style="font-size: 16px;">
+    In this dumbell chart it is possible to see the gap between investments in climate change mitigation and
+    environmental taxes revenue for each country. The green end represents the euros invested, 
+    while the yellow one represents the euros collected from taxes. By hovering over the ends a tooltip appears
+    showing the country and value in euros of investments and taxes respectively. A slider is present at the bottom 
+    of the chart, by clicking and dragging the slider it is possible to change the year visualized in the chart.
+</p>
+
+<!-- Include d3 library -->                                     
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<!-- Load slider -->
+<script src="https://unpkg.com/d3-simple-slider"></script>
+
+<div id="container_5"></div>
+
+
+<style>
+
+    * {
+        font-family: Verdana;
+        font-size: 18px;
+        line-height: 1.5;
+        max-width: 700px; 
+        margin: 0 auto; 
+    }
+    h5 {
+        padding-top: 20px;
+    }  
+    text {
+        font-family: lato;
+        font-size: 11px;
+        fill: #666666;
+    }
+    .grid path {
+        stroke-width: 0;
+        stroke: #333333;
+    }
+    .grid .tick line {
+        stroke: #333333;
+        stroke-width: 0.3px;
+        stroke-opacity: 0.3;
+    }
+    text.chart-title {
+        font-size: 15px;
+        font-weight: 600;
+        fill:#222222
+    }
+    text.chart-label {
+        font-size: 11px;
+        font-weight: 400;
+        fill: #999999;
+    }
+    text.chart-source {
+        font-size: 9px;
+        fill: #999999;
+    }
+    text.copyright {
+        font-size: 9px;
+        fill: #999999;
+    }
+    .tooltip {
+        background-color: #ffffff;
+        font-family: lato;
+        font-size: 11px;
+        padding: 4px;
+        color: #666666;
+        border: none;
+        box-shadow: 0px 0px 3px 0px #E6E6E6;
+    }
+
+</style>
+
+
+<script>
+
+    // set the dimensions and margins of the graph
+    const margin5 = {top: 10, right: 30, bottom: 30, left: 70},
+    width5 = 550 - margin5.left - margin5.right,
+    height5 = 600 - margin5.top - margin5.bottom;
+
+    
+    // append the svg object to the body of the page
+    const svg5 = d3.select("#container_5")
+        .append("svg")
+        .attr("width", "100%")
+        .attr("height", "80%")
+        .attr("viewBox", "0 0 450 650")
+        .attr("preserveAspectRatio", "xMinYMin")
+        .append("g")
+        .attr("transform", `translate(${margin5.left}, ${margin5.top})`);    
+    
+    // Parse the Data
+    //d3.csv("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/data_cleveland.csv").then( function(data) {
+    d3.csv("https://raw.githubusercontent.com/Picca33/DV/refs/heads/main/Data/2_1.csv").then( function(data) {
+        
+        year = '2008';
+        console.log(data)
+        dataFilter =  data.filter(function (d) {
+            return d.Year == year;
+        }).sort(function(a, b) {
+            return a.Investments - b.Investments;  // Ascending order
+        });;
+        console.log(dataFilter)
+        // Extract unique years and age categories
+        let countries = [...new Set(dataFilter.map(d => d.Country))];
+
+        const labelWidth = d3.max(data, d => d.Country.length)*1.2; // Rough width estimate
+
+        // Add X axis
+        const x = d3.scaleLinear()
+            .domain([0, 1.1*d3.max(data, d => +d.Taxes)])
+            .range([ 0, width5]);
+        svg5.append("g")
+            .attr("transform", `translate(${labelWidth}, ${height5})`)
+            .call(d3.axisBottom(x).tickFormat(d3.format(",.0s")))
+        
+        // set X axis label
+        svg5.append("text")
+            .attr("class", "chart-label")
+            .attr("x", width5/1.8)
+            .attr("y", height5+margin5.bottom+5)
+            .attr("text-anchor", "middle")
+            .text("Euros (€)");
+    
+        // Y axis
+        const y = d3.scaleBand()
+            .range([ 20, height5])
+            .domain(dataFilter.map(function(d) { return d.Country; }))
+            .padding(1);
+        svg5.append("g")
+            .attr("transform", `translate(${labelWidth}, 0)`)
+            .call(d3.axisLeft(y));
+
+        // set Y axis label
+        svg5.append("text")
+            .attr("class", "chart-label")
+            .attr("x", -(margin5.left)*0.1)
+            .attr("y", (margin5.top))
+            .attr("text-anchor", "start")
+            .text("Country")
+
+        const sliderRange= d3
+            .sliderBottom()
+            .min(2008)
+            .max(2022)
+            .width(600)
+            .step(1)
+            .tickFormat(d3.format('Y'))
+            .ticks(5)
+            .default(year)
+            .on('onchange', val => {
+                year = val
+                updateChart(year)
+            })
+
+        const gRange= d3.select('#container_5')
+            .append("svg")
+            .attr("width", 600 + margin5.left + margin5.right)
+            .attr("height", 10 + margin5.top + margin5.bottom)
+            .append("g")
+            .attr("transform","translate(" + margin5.left + ", 10)")
+            .call(sliderRange);
+
+        updateChart(year)
+
+        function updateChart(year){
+
+            svg5.selectAll(".lines").remove();
+            svg5.selectAll(".circles1").remove();
+            svg5.selectAll(".circles2").remove();
+
+            dataFilter =  data.filter(function (d) {
+                return d.Year == year && countries.includes(d.Country);;
+            });            
+
+            // Create the tooltip div and set its initial style
+            const tooltip = d3.select("body")
+                .append("div")
+                .attr("class", "tooltip")
+                .style("opacity", 0) // Start hidden
+                .style("position", "absolute")
+                .style("pointer-events", "none") // Avoid tooltip blocking mouse events
+                .style("background-color", "#ffffff")
+                .style("padding", "6px")
+                .style("font-family", "Lato, sans-serif")
+                .style("font-size", "11px")
+                .style("color", "#333333")
+                .style("box-shadow", "0px 0px 3px 0px #E6E6E6");
+
+            // Mouseover event
+            const mouseover = function (event, d) {
+                tooltip.style("opacity", 0.8); // Make the tooltip visible
+                d3.select(this).style("opacity", 0.7); // Dim the bar for effect
+            };
+
+            // Mousemove events
+            const mousemove1 = function (event, d) {
+                tooltip
+                    .style("top", (d3.pointer(event)[1]+200) + "px")
+                    .style("left", (d3.pointer(event)[0]+200) + "px")
+                    .html("<b>Investments</b> "+ "<br>" + "Country: "+ d.Country + "<br>" + "Investments: " + `${d3.format(".1f")(d.Investments)}` + " €")
+                    .style("position", "absolute");
+                console.log(d3.pointer(event)[0])
+            };
+
+            const mousemove2 = function (event, d) {
+                tooltip
+                    .style("top", (d3.pointer(event)[1]+200) + "px")
+                    .style("left", (d3.pointer(event)[0]+200) + "px")
+                    .html("<b>Taxes</b> "+ "<br>" + "Country: "+ d.Country + "<br>" + "Taxes: " + `${d3.format(".1f")(d.Taxes)}` + " €")
+                    .style("position", "absolute");
+            };
+
+            // Mouseleave event
+            const mouseleave = function () {
+                tooltip.style("opacity", 0); // Hide the tooltip
+                d3.select(this).style("opacity", 1); // Reset bar opacity
+            };
+            
+            // Lines
+            svg5.selectAll("myline")
+                .data(dataFilter)
+                .join("line")
+                .attr("x1", function(d) { return x(d.Investments)+labelWidth; })
+                .attr("x2", function(d) { return x(d.Taxes)+labelWidth; })
+                .attr("y1", function(d) { return y(d.Country); })
+                .attr("y2", function(d) { return y(d.Country); })
+                .attr("stroke", "grey")
+                .attr("stroke-width", "1px")
+                .attr("class", "lines")
+        
+            // Circles of variable 1
+            svg5.selectAll("mycircle")
+                .data(dataFilter)
+                .join("circle")
+                .attr("cx", function(d) { return x(d.Investments)+labelWidth; })
+                .attr("cy", function(d) { return y(d.Country); })
+                .attr("r", "4")
+                .style("fill", "#66BB6A")
+                .on("mouseover", mouseover)
+                .on("mousemove", mousemove1)
+                .on("mouseleave", mouseleave)
+                .attr("class", "circles1")
+        
+            // Circles of variable 2
+            svg5.selectAll("mycircle")
+                .data(dataFilter)
+                .join("circle")
+                .attr("cx", function(d) { return x(d.Taxes)+labelWidth; })
+                .attr("cy", function(d) { return y(d.Country); })
+                .attr("r", "4")
+                .style("fill", "#FFEB3B")
+                .on("mouseover", mouseover)
+                .on("mousemove", mousemove2)
+                .on("mouseleave", mouseleave)
+                .attr("class", "circles2")
+        
+        }
+
+        
+    })
+
+</script>

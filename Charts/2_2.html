@@ -1,0 +1,262 @@
+<h5 class="card-title">Positive trend in using renewables</h5>
+
+<p, style="font-size: 16px;">
+    In this linechart it is possible to see the share of energy produced from renewable resource from 2008 to 2022
+    in each countries of EU. By hovering on a specific line a tooltip will appear, indicating the region 
+    of the selected line and highlighting it.
+</p>
+
+<!-- Include d3 library -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+
+
+<div id="container"></div>
+
+<!-- Create a container to host the chart -->
+<div id="viz_container3"></div>
+
+
+<style>
+
+    * {
+      font-family: Verdana;
+          font-size: 18px;
+          line-height: 1.5;
+          max-width: 700px; 
+          margin: 0 auto; 
+    }
+    h5 {
+		padding-top: 20px;
+    }
+	text {
+		font-family: lato;
+		font-size: 11px;
+		fill: #666666;
+	}
+		.grid path {
+		stroke-width: 0;
+		stroke: #333333;
+	}
+		.grid .tick line {
+		stroke: #333333;
+		stroke-width: 0.3px;
+		stroke-opacity: 0.3;
+	}
+		text.chart-title {
+		font-size: 15px;
+		font-weight: 600;
+		fill:#222222
+	}
+		text.chart-label {
+		font-size: 11px;
+		font-weight: 400;
+		fill: #999999;
+	}
+		text.chart-source {
+		font-size: 9px;
+		fill: #999999;
+	}
+		text.copyright {
+		font-size: 9px;
+		fill: #999999;
+	}
+		.tooltip {
+		background-color: #ffffff;
+		font-family: lato;
+		font-size: 11px;
+		padding: 4px;
+		color: #666666;
+		border: none;
+		box-shadow: 0px 0px 3px 0px #E6E6E6;
+	}
+
+</style>
+
+<script>
+	// set the dimensions and margins of the graph
+	const margin3 = {top: 80, right: 20, bottom: 50, left: 40};
+	const width3 = 400 - margin3.left - margin3.right;
+	const height3 = 350 - margin3.top - margin3.bottom;
+
+	// append the svg object to the body of the page
+	const svg3 = d3.select("#viz_container3")
+		.append("svg")
+		.attr("width", "100%")
+		.attr("height", "80%")
+		.attr("viewBox", "0 0 450 350")
+		.attr("preserveAspectRatio", "xMinYMin")
+		.append("g")
+		.attr("transform", `translate(${margin3.left}, ${margin3.top})`);
+
+    // Define countries to highlight
+const highlightCountries = ["Iceland", "Denmark", "Ireland", "European Union - 27 countries (from 2020)"];
+    const colorScale = d3.scaleOrdinal()
+        .domain(highlightCountries)
+        .range(["#006400", "#228B22", "#2E8B57", "#B8860B"]); // Different shades of green
+
+    d3.csv("https://raw.githubusercontent.com/Picca33/DV/refs/heads/main/Data/2_2.csv", d => ({
+        Country: d.Country,
+        Year: +d.Year,  // Convert to number
+        Value: +d.Value // Convert to number
+    })).then(function(data) {
+
+        // Filter data for years up to and including 2022
+        const filteredData = data.filter(d => d.Year <= 2022);
+        // Group data by country
+        const dataGrouped = Array.from(d3.group(filteredData, d => d.Country));
+
+        // Separate highlighted and other data
+        const otherLinesData = dataGrouped.filter(d => !highlightCountries.includes(d[0]));
+        const highlightLinesData = dataGrouped.filter(d => highlightCountries.includes(d[0]));
+
+        // Tooltip setup
+        const tooltip = d3.select("#viz_container3")
+            .append("div")
+            .attr("class", "tooltip");
+
+        const mouseover = function(d) {
+            tooltip.style("opacity", 1);
+            d3.select(this)
+                .style("stroke-width", 2);
+        };
+        const mousemove = function(event, d) {
+            tooltip.html("<div><b>Country:</b> " + d[0] + "</div>")
+                .style("left", (d3.pointer(event)[0]) * 2 + 150 + "px")
+                .style("top", (d3.pointer(event)[1]) * 2 + 150 + "px")
+                .style("position", "absolute");
+        };
+        const mouseleave = function(d) {
+            tooltip.style("opacity", 0);
+            d3.select(this)
+                .style("stroke-width", 1);
+        };
+
+        // X scale and Axis
+        /*const xScale = d3.scaleLinear()
+            .domain([2008, 2022])
+            .range([0, width3]);
+        svg3.append('g')
+            .attr("transform", `translate(0, ${height3})`)
+            .call(d3.axisBottom(xScale).tickSize(0).tickPadding(8).tickValues(d3.range(2008, 2023)).tickFormat(d3.format("d")));*/
+
+        // X scale and Axis
+        const xScale = d3.scaleLinear()
+            .domain([2008, 2022])
+            .range([0, width3]);
+
+        const xAxis = svg3.append('g')
+            .attr("transform", `translate(0, ${height3})`)
+            .call(d3.axisBottom(xScale)
+                .tickSize(0)
+                .tickPadding(8)
+                .tickValues(d3.range(2008, 2023))
+                .tickFormat(d3.format("d"))
+            );
+
+        // Rotate tick labels by -45 degrees
+        xAxis.selectAll("text")
+            .attr("transform", "rotate(-45)")
+            .style("text-anchor", "end");
+
+        // Y scale and Axis
+        /*const yScale = d3.scaleLinear()
+            .domain([0, 100])
+            .range([height3, 0]);
+        svg3.append('g')
+            .call(d3.axisLeft(yScale).ticks(6).tickSize(0).tickPadding(6))
+            .call(d => d.select(".domain").remove());*/
+
+        // Y scale and Axis
+        const yScale = d3.scaleLinear()
+            .domain([0, 100])
+            .range([height3, 0]);
+
+        svg3.append('g')
+            .call(
+                d3.axisLeft(yScale)
+                    .ticks(6)
+                    .tickSize(0)
+                    .tickPadding(6)
+                    .tickFormat(d => `${d}%`) // Format ticks with percentage
+            )
+            .call(d => d.select(".domain").remove());
+
+        // Horizontal grid lines
+        const GridLine = () => d3.axisLeft().scale(yScale);
+        svg3.append("g")
+            .attr("class", "grid")
+            .call(GridLine()
+                .tickSize(-width3, 0, 0)
+                .tickFormat("")
+                .ticks(6)
+            );
+
+        // Draw general lines
+        svg3.selectAll("path.line")
+            .data(otherLinesData)
+            .join("path")
+            .attr("class", "line")
+            .attr("fill", "none")
+            .attr("stroke", "#E0E0E0")
+            .attr("stroke-width", 1)
+            .attr("d", d => d3.line()
+                .curve(d3.curveCardinal)
+                .x(d => xScale(d.Year))
+                .y(d => yScale(d.Value))
+                (d[1])
+            )
+            .on("mouseover", mouseover)
+            .on("mousemove", mousemove)
+            .on("mouseleave", mouseleave);
+
+        // Draw highlighted lines over the general lines
+        svg3.selectAll("path.highlight-line")
+            .data(highlightLinesData)
+            .join("path")
+            .attr("class", "highlight-line")
+            .attr("fill", "none")
+            .attr("stroke", d => colorScale(d[0]))
+            .attr("stroke-width", 1)
+            .attr("d", d => d3.line()
+                .curve(d3.curveCardinal)
+                .x(d => xScale(d.Year))
+                .y(d => yScale(d.Value))
+                (d[1])
+            )
+            .on("mouseover", mouseover)
+            .on("mousemove", mousemove)
+            .on("mouseleave", mouseleave);
+
+        // Add country labels at the end of highlighted lines
+        svg3.selectAll(".country-label")
+            .data(highlightLinesData)
+            .join("text")
+            .attr("class", "country-label")
+            .attr("x", d => xScale(d[1][d[1].length - 1].Year) + 4) // Position near the last point
+            .attr("y", d => yScale(d[1][d[1].length - 1].Value))
+            .attr("dy", "0.35em") // Adjust text position slightly
+            .attr("text-anchor", "start")
+            .style("font-size", "10px")
+            .style("fill", d => colorScale(d[0]))
+            .text(d => d[0]);
+
+        // Y axis label
+        svg3.append("text")
+            .attr("class", "chart-label")
+            .attr("x", -(margin3.left) * 0.7)
+            .attr("y", -(margin3.top / 3))
+            .attr("text-anchor", "start")
+            .text("Share of energy from renewable sources (%)");
+
+        // X axis label    
+        svg3.append("text")
+            .attr("class", "chart-label")
+            .attr("x", width3 / 2)
+            .attr("y", height3 + margin3.bottom / 1.2)
+            .attr("text-anchor", "middle")
+            .text("Year");
+
+    });
+
+</script>

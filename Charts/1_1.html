@@ -1,0 +1,410 @@
+<h5 class="card-title">GHG emissions are slightly decreasing</h5>
+
+<p, style="font-size: 16px;">
+    In this choropleth chart it is possible to see a chosen parameter from a selector (CO2, CH4 and N2O) 
+    for European countries, in a Robinson projection. The colour of each country depends on the value of the GHG 
+    emissions in the country, following the legend in the bottom Left of the chart. 
+    A tooltip appears when hovering a country, showing the exact value of the parameter in that country. 
+    On the bottom of the chart a slider is present: by clicking and dragging the slider it is possible to change 
+    the year visualized in the chart.
+</p>
+
+<!-- Include d3 library -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-geo@"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-geo-projection@4"></script>
+<script src="https://unpkg.com/topojson@3"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+
+<!-- Initialize a Dropdown -->
+<select id="typebutton"></select>
+<!-- Create a container to host the chart -->
+<div id="viz_container"></div>
+<!-- Load slider -->
+<script src="https://unpkg.com/d3-simple-slider"></script>
+
+<style>
+    * {
+        font-family: Verdana;
+        font-size: 18px;
+        line-height: 1.5;
+        max-width: 700px; 
+        margin: 0 auto; 
+        }
+
+    h5 {
+        padding-top: 20px;
+        }
+    text {
+        font-family: lato;
+        font-size: 8px;
+        fill: #666666;
+    }
+    .solid{
+        stroke:white;
+        stroke-width:0.2;
+    }
+    .dashed{
+        stroke:white;
+        stroke-width:0.2;
+        stroke-dasharray:1, 0.5
+    }
+    .dotted{
+        stroke:white;
+        stroke-width:0.2;
+        stroke-dasharray:0.2, 0.5
+    }
+    .dashed-dot{
+        stroke:white;
+        stroke-width:0.2;
+        stroke-dasharray:1, 0.5, 0.2, 0.5
+    }
+</style>
+
+<script>
+
+    //set svg parameters
+    const margin = {top: 30, right: 20, bottom: 30, left: 20};
+    const width2 = 450, height2 = 350;
+    const svg2 = d3.select("#viz_container")
+        .append("svg")
+        .attr("width", "100%")
+        .attr("height", "60%")
+        .attr("viewBox","0 0  450 350")
+        .attr("preserveAspectRatio","xMinYMin");
+
+    // set map scale, location on screen and its projection
+    const projection = d3.geoRobinson()
+        .scale(340)
+        .center([0, 50])
+        .translate([width2/2.2, height2/2]);
+
+    // path generator
+    const path = d3.geoPath()
+        .projection(projection);
+
+    // set color scale
+    const color = d3.scaleThreshold()
+        .domain([0.005,0.01,0.05,0.1,0.2])
+        // .range(["#DCE9FF", "#8EBEFF", "#589BE5", "#0072BC","#0f43a3", "#160457"])
+        .range(["#160457", "#0f43a3", "#0072BC", "#589BE5", "#8EBEFF", "#DCE9FF"])
+        .unknown("#E6E6E6");
+
+    // set color scale
+    const color1 = d3.scaleThreshold()
+        .domain([10000000, 45000000, 80000000, 180000000, 350000000])
+        .range(["#66BB6A", "#D4E157", "#FFEB3B", "#FFA726", "#FF7043", "#D32F2F"])
+        .unknown("#E6E6E6");
+    const color2 = d3.scaleThreshold()
+        .domain([100000, 250000, 600000, 1350000, 1800000])
+        .range(["#66BB6A", "#D4E157", "#FFEB3B", "#FFA726", "#FF7043", "#D32F2F"])
+        .unknown("#E6E6E6");
+    const color3 = d3.scaleThreshold()
+        .domain([5000, 13000, 23000, 40000, 80000])
+        .range(["#66BB6A", "#D4E157", "#FFEB3B", "#FFA726", "#FF7043", "#D32F2F"])
+        .unknown("#E6E6E6");
+
+    //declare polygon and polyline
+    const poly = svg2.append("g");
+    const line = svg2.append("g");
+
+    var year= 2008;
+    var GHG= "CO2";
+
+    // declare URL
+    //const dataURL = "https://raw.githubusercontent.com/GDS-ODSSS/unhcr-dataviz-platform/master/data/geospatial/choropleth_map.csv";
+    const dataURL = "https://raw.githubusercontent.com/Picca33/DV/refs/heads/main/Data/1_1.csv";
+    const polygonsURL = "https://raw.githubusercontent.com/GDS-ODSSS/unhcr-dataviz-platform/master/data/geospatial/world_polygons_simplified.json";
+    const polylinesURL = "https://raw.githubusercontent.com/GDS-ODSSS/unhcr-dataviz-platform/master/data/geospatial/world_lines_simplified.json";
+
+    //list of unique locations
+    var GHGlist= ["CO2","CH4","N2O"];
+
+    // Initialize a Dropdown
+    d3.select("#typebutton")
+        .selectAll('myOptions')
+        .data(GHGlist)
+        .enter()
+        .append('option')
+        .attr("value", d =>d) // corresponding value returned by the button
+        .text(d=>d)
+
+    // load data
+    const promises = [
+        d3.json(polygonsURL),
+        d3.csv(dataURL)
+    ];
+
+    Promise.all(promises).then(function(data) {
+        var topology = data[0];
+        var population = data[1];
+        population =  population.filter(function (d) {
+            return d.Year == year && d.GHG == GHG;
+        });
+        ready([topology, population]);
+    });
+
+    // Declare zoomFunction in the global scope
+    let zoomFunction;
+
+    function ready([topology, population]) {
+
+        console.log(population);
+
+        // prepare pop data to join shapefile
+        const data = {};
+        population.forEach(function(d){
+            data[d.Iso3] = +d.Value
+        });
+        console.log(data);
+
+        // set mouse events
+        const mouseover = function(d) {
+            d3.selectAll(".countries")
+            .transition()
+            .duration(100)
+            .style("opacity", .3)
+            d3.select(this)
+            .transition()
+            .duration(100)
+            .style("opacity", 1)
+        };
+        const mouseleave = function(d) {
+            d3.selectAll(".countries")
+            .transition()
+            .duration(100)
+            .style("opacity", 1)
+            d3.select(this)
+            .transition()
+            .duration(100)
+            .style("opacity", 1)
+        };
+
+        // Define Europe bounding box (adjust as needed)
+        const europeBounds = {
+            latMin: 36,
+            latMax: 72,
+            lonMin: -20,
+            lonMax: 42
+        };
+
+        // Helper function to check if a feature is within the bounding box
+        function isInBounds(feature){
+            const [lon, lat] = d3.geoCentroid(feature);
+            return(
+                lat >= europeBounds.latMin &&
+                lat <= europeBounds.latMax &&
+                lon >= europeBounds.lonMin &&
+                lon <= europeBounds.lonMax
+            );
+        }
+
+        if (GHG=="CO2"){
+            // Load and draw polygons (filtered for Europe)
+            poly.selectAll("path")
+                .data(
+                    topojson.feature(topology, topology.objects.world_polygons_simplified).features.filter(isInBounds)
+                )
+                .join("path")
+                .attr("fill", function (d) {
+                    return color1(d.Value = data[d.properties.color_code]);
+                })
+                .attr("d", path)
+                .attr("class", function (d) {
+                    return "countries";
+                })
+                .on("mouseover", mouseover)
+                .on("mouseleave", mouseleave)
+                .append("title")
+                .text(function(d) { 
+                    return `${d.properties.gis_name} \n CO2 level: ${d3.format(".1f")(d.Value)} Tonnes`
+                })
+        }
+
+        if (GHG=="CH4"){
+            // Load and draw polygons (filtered for Europe)
+            poly.selectAll("path")
+                .data(
+                    topojson.feature(topology, topology.objects.world_polygons_simplified).features.filter(isInBounds)
+                )
+                .join("path")
+                .attr("fill", function (d) {
+                    return color2(d.Value = data[d.properties.color_code]);
+                })
+                .attr("d", path)
+                .attr("class", function (d) {
+                    return "countries";
+                })
+                .on("mouseover", mouseover)
+                .on("mouseleave", mouseleave)
+                .append("title")
+                .text(function(d) { 
+                    return `${d.properties.gis_name} \n CH4 levels: ${d3.format(".1f")(d.Value)} Tonnes`
+                })
+        }
+
+        if (GHG=="N2O"){
+            // Load and draw polygons (filtered for Europe)
+            poly.selectAll("path")
+                .data(
+                    topojson.feature(topology, topology.objects.world_polygons_simplified).features.filter(isInBounds)
+                )
+                .join("path")
+                .attr("fill", function (d) {
+                    return color3(d.Value = data[d.properties.color_code]);
+                })
+                .attr("d", path)
+                .attr("class", function (d) {
+                    return "countries";
+                })
+                .on("mouseover", mouseover)
+                .on("mouseleave", mouseleave)
+                .append("title")
+                .text(function(d) { 
+                    return `${d.properties.gis_name} \n N2O levels: ${d3.format(".1f")(d.Value)} Tonnes`
+                })
+        }        
+
+        // set legend
+        svg2.append("g")
+            .attr("class", "legendThreshold")
+            .attr("transform", "translate(5,255)");
+        var legend = d3.legendColor()
+            .labelFormat(d3.format(".2s"))
+            .labels(d3.legendHelpers.thresholdLabels)
+            .labelOffset(3)
+            .shapePadding(0)
+            .scale(color1);
+
+        if (GHG=="N2O"){
+            legend = d3.legendColor()
+            .labelFormat(d3.format(".2s"))
+            .labels(d3.legendHelpers.thresholdLabels)
+            .labelOffset(3)
+            .shapePadding(0)
+            .scale(color3);
+        }
+
+        if (GHG=="CH4"){
+            legend = d3.legendColor()
+            .labelFormat(d3.format(".2s"))
+            .labels(d3.legendHelpers.thresholdLabels)
+            .labelOffset(3)
+            .shapePadding(0)
+            .scale(color2);
+        }
+
+        svg2.select(".legendThreshold")
+        .call(legend);
+
+
+        //load and draw lines
+        d3.json(polylinesURL).then(function(topology) {
+            line
+                .selectAll("path")
+                .data(topojson.feature(topology, topology.objects.world_lines_simplified).features)
+                .enter()
+                .append("path")
+                .attr("d", path)
+                .style("fill","none")
+                .attr("class", function(d) {
+                    console.log(d.properties.type)
+                    return d.properties.type;})
+            });
+
+        //zoom function
+        /*const zoom = true
+        if (zoom){
+            var zoomFunction = d3.zoom()
+                .scaleExtent([1, 8])
+                .on('zoom', function(event) {
+                    poly.selectAll('path')
+                    .attr('transform', event.transform);
+                    line.selectAll('path')
+                    .attr('transform', event.transform);
+            });
+            svg2.call(zoomFunction);
+        };*/
+
+        // Initialize zoom function
+        zoomFunction = d3.zoom()
+            .scaleExtent([1, 8])
+            .on('zoom', function(event) {
+                poly.selectAll('path')
+                    .attr('transform', event.transform);
+                line.selectAll('path')
+                    .attr('transform', event.transform);
+            });
+
+        // Apply zoom function to the SVG
+        svg2.call(zoomFunction);
+    };
+
+    d3.select("#typebutton").on("change", function () {
+        GHG = d3.select(this).property("value");
+        updateGHG(GHG);
+    });
+
+    function updateGHG(GHG) {
+        // Reset zoom transform
+        svg2.transition().duration(500).call(zoomFunction.transform, d3.zoomIdentity);
+
+        // Destroy only the chart elements
+        d3.selectAll("path.countries").remove(); // Remove map paths
+        d3.selectAll("title").remove();         // Remove tooltips
+        d3.selectAll("#tipDiv").remove();
+
+        // Apply filter to promises
+        Promise.all(promises).then(function(data) {
+            var topology = data[0];
+            var population = data[1];
+            population =  population.filter(function (d) {
+                return d.GHG == GHG && d.Year == year;
+            });
+            ready([topology, population]);
+        });
+    }
+
+    const sliderRange= d3
+        .sliderBottom()
+        .min(2008)
+        .max(2022)
+        .width(600)
+        .step(1)
+        .tickFormat(d3.format('Y'))
+        .ticks(5)
+        .default(year)
+        .on('onchange', val => {
+            year = val
+            updateYear(year)
+        })
+
+    const gRange= d3.
+        select('#viz_container')
+        .append("svg")
+        .attr("width", 600 + margin.left + margin.right)
+        .attr("height", 10 + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform","translate(" + margin.left + "," + margin.top + ")")
+        .call(sliderRange);
+
+    function updateYear(year){
+        // Reset zoom transform
+        svg2.transition().duration(500).call(zoomFunction.transform, d3.zoomIdentity);
+
+        // Destroy only the chart elements
+        d3.selectAll("path.countries").remove();
+        d3.selectAll("title").remove();
+
+        //apply filter to promises
+        Promise.all(promises).then(function(data) {
+            var topology = data[0];
+            var population = data[1];
+            population =  population.filter(function (d) {
+                return d.Year == year && d.GHG == GHG;
+            });
+            ready([topology, population]);
+        });
+    }
+
+</script>
